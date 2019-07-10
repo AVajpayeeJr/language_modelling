@@ -1,0 +1,33 @@
+data:
+    word_min_count: 2
+    vocab_size: 100000
+    num_train_sentences: 80000
+    num_valid_sentences: 3000
+    num_test_sentences: 3000
+    min_sentence_len: 3
+embedding:
+    type: word
+    word:
+        dim: 125
+    char:
+        embedding_dim: 15
+        hidden_type: lstm
+        lstm:
+            num_hidden_layers: 1
+            hidden_dim: 30
+        gru:
+            num_hidden_layers: 1
+            hidden_dim: 30
+recurrent:
+    type: gru
+    num_layers: 2
+    cell_size: 125
+    dropout: 0.3
+    recurrent_dropout: 0.2
+training:
+  optimizer_type: adam
+  lr: 0.001
+  lr_decay: 0.0
+  clipnorm: 5.0
+  epochs: 1
+  batch_size: 32

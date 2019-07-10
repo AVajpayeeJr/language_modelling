@@ -1,0 +1,2 @@
+file en/train.txt: 42068 sentences, 887521 words, 45020 OOVs
+0 zeroprobs, logprob= -1612942 ppl= 66.59186 ppl1= 82.12374
