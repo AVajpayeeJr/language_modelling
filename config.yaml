@@ -1,9 +1,9 @@
 data:
     word_min_count: 2
     vocab_size: 100000
-    num_train_sentences: 80000
-    num_valid_sentences: 3000
-    num_test_sentences: 3000
+    num_train_sentences: 150000
+    num_valid_sentences: 10000
+    num_test_sentences: 10000
     min_sentence_len: 3
 embedding:
     type: word
@@ -29,5 +29,5 @@ training:
   lr: 0.001
   lr_decay: 0.0
   clipnorm: 5.0
-  epochs: 1
+  epochs: 3
   batch_size: 32
