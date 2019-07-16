@@ -4,6 +4,7 @@ from collections import defaultdict
 import logging
 from models.char import RNNLM
 from models.word_class import WordClassRNNLM
+from models.arpa import ARPALM
 import numpy as np
 import yaml
 
@@ -151,13 +152,15 @@ def build_class_model_dataset(sentences, word2class_idx, class_idx2word, word_vo
 
     x_class = np.array(x_class, dtype=np.int32)
 
-    class_embedding_matrix = np.zeros((len(class_idx2word), len(word_vocab)), dtype=np.int32)
+    class_one_hot_matrix = np.zeros((len(class_idx2word), len(class_idx2word)), dtype=np.int32)
+    class_membership_matrix = np.zeros((len(class_idx2word), len(word_vocab)), dtype=np.int32)
     for class_idx in class_idx2word:
+        class_one_hot_matrix[class_idx][class_idx] = 1
         for word in class_idx2word[class_idx]:
             word_idx = word_vocab[word]
-            class_embedding_matrix[class_idx][word_idx] = 1
+            class_membership_matrix[class_idx][word_idx] = 1
 
-    return x_class, class_embedding_matrix
+    return x_class, class_one_hot_matrix, class_membership_matrix
 
 
 def main():
@@ -167,6 +170,10 @@ def main():
     parser.add_argument('--type', help='word/char/word_char/word_class')
     parser.add_argument('--num_classes', type=int, default=100, help='Number of classes when using word_class model')
     parser.add_argument('--output_base_dir', default='saved_models', help='Base Directory for storing models')
+    parser.add_argument('--input_ngram_lm', default=None,
+                        help='Input N-Gram LM to use as base for approximating')
+    parser.add_argument('--output_ngram_lm', default=None,
+                        help='Output file to write Approximated NGram LM in ARPA Format')
     parser.add_argument('--debug', action='store_true', default=True, help='Run with DEBUG logging level')
     args = parser.parse_args()
 
@@ -184,7 +191,6 @@ def main():
     train_sentences, train_max_word_len, train_max_sent_len = read_sentence_data(file_path=train_file)
     val_sentences, val_max_word_len, val_max_sent_len = read_sentence_data(file_path=val_file)
     test_sentences, test_max_word_len, test_max_sent_len = read_sentence_data(file_path=test_file)
-
 
     max_word_len = max(train_max_word_len, val_max_word_len) + 5
     max_sent_len = max(train_max_sent_len, val_max_sent_len) + 5
@@ -232,7 +238,6 @@ def main():
                                           max_word_len=max_word_len)
     logging.debug('Val Char X: {0}'.format(char_x_val.shape))
 
-
     # Test
     char_x_test = build_char_model_dataset(sentences=test_sentences,
                                            char_vocab=char_vocab,
@@ -248,34 +253,36 @@ def main():
         logging.debug('Number of classes found: {}'.format(num_classes))
 
         # Train
-        class_x_train, class_embedding_matrix = build_class_model_dataset(sentences=train_sentences,
-                                                                          word2class_idx=word2class_idx,
-                                                                          class_idx2word=class_idx2word,
-                                                                          word_vocab=word_vocab,
-                                                                          max_sent_len=max_sent_len)
-        logging.debug('Train Class Embedding Matrix Shape: {}'.format(class_embedding_matrix.shape))
+        class_x_train, class_one_hot_matrix, class_membership_matrix = build_class_model_dataset(sentences=train_sentences,
+                                                                                                 word2class_idx=word2class_idx,
+                                                                                                 class_idx2word=class_idx2word,
+                                                                                                 word_vocab=word_vocab,
+                                                                                                 max_sent_len=max_sent_len)
+        logging.debug('Train Class One-Hot Matrix Shape: {}'.format(class_one_hot_matrix.shape))
+        logging.debug('Train Class Membership Matrix Shape: {}'.format(class_membership_matrix.shape))
         logging.debug('Train Class X: {0}'.format(class_x_train.shape))
 
         # Val
-        class_x_val, _ = build_class_model_dataset(sentences=val_sentences,
-                                                   word2class_idx=word2class_idx,
-                                                   class_idx2word=class_idx2word,
-                                                   word_vocab=word_vocab,
-                                                   max_sent_len=max_sent_len)
+        class_x_val, _, _ = build_class_model_dataset(sentences=val_sentences,
+                                                      word2class_idx=word2class_idx,
+                                                      class_idx2word=class_idx2word,
+                                                      word_vocab=word_vocab,
+                                                      max_sent_len=max_sent_len)
         logging.debug('Val Class X: {0}'.format(class_x_val.shape))
 
         # Test
-        class_x_test, _ = build_class_model_dataset(sentences=test_sentences,
-                                                    word2class_idx=word2class_idx,
-                                                    class_idx2word=class_idx2word,
-                                                    word_vocab=word_vocab,
-                                                    max_sent_len=max_sent_len)
+        class_x_test, _, _ = build_class_model_dataset(sentences=test_sentences,
+                                                       word2class_idx=word2class_idx,
+                                                       class_idx2word=class_idx2word,
+                                                       word_vocab=word_vocab,
+                                                       max_sent_len=max_sent_len)
         logging.debug('Test Class X: {0}'.format(class_x_test.shape))
 
         word_class_rnn_lm = WordClassRNNLM(max_seq_len=max_sent_len,
                                            word_vocab_size=len(word_vocab),
                                            class_vocab_size=num_classes,
-                                           class_embedding_weights=class_embedding_matrix,
+                                           class_membership_weights=class_membership_matrix,
+                                           class_one_hot_weights=class_one_hot_matrix,
                                            save_dir=save_dir,
                                            config=config)
         print('Training Word + Class Level Model')
@@ -285,75 +292,83 @@ def main():
         val_class_y = np.expand_dims(class_x_val, -1)
         logging.debug('Val Class Y: {}'.format(val_class_y.shape))
         word_class_rnn_lm.train(train_x=[class_x_train, word_x_train],
-                                train_word_y=y_train,
-                                train_class_y=train_class_y,
+                                train_y=y_train,
                                 val_x=[class_x_val, word_x_val],
-                                val_word_y=y_val,
-                                val_class_y=val_class_y)
+                                val_y=y_val)
+        train_ppl = word_class_rnn_lm.evaluate_perplexity(x=[class_x_train,
+                                                             word_x_train], y_true=y_train)
+        test_ppl = word_class_rnn_lm.evaluate_perplexity(x=[class_x_test,
+                                                            word_x_test], y_true=y_test)
+        val_ppl = word_class_rnn_lm.evaluate_perplexity(x=[class_x_val,
+                                                           word_x_val], y_true=y_val)
+        label_probabilities = word_class_rnn_lm.predict(x=[class_x_train,
+                                                           word_x_train], true_y=y_train)
+        print('Neural Perplexity: Train: {}, Test: {}, Val: {}'.format(round(train_ppl, 3),
+                                                                       round(test_ppl, 3),
+                                                                       round(val_ppl, 3)))
+
+        # Converting to ARPA Format
+        arpa_lm = ARPALM(word2idx=word_vocab)
+        if args.input_ngram_lm:
+            arpa_lm.read_lm(args.input_ngram_lm)
+        else:
+            arpa_lm.read_lm(args.output_base_dir + '/' + args.language + '/ngram/3gram_kn_interp.lm')
+        arpa_lm.convert_to_ngram(label_probabilities)
+
+        if args.output_ngram_lm:
+            arpa_lm.write_arpa_format(args.output_ngram_lm)
+        else:
+            arpa_lm.write_arpa_format(save_dir + '/' + args.language + '_' + args.type + '_' + 'neural_3gram.lm')
 
         print('----------')
 
+    else:
+        model = RNNLM(type=args.type,
+                      max_seq_len=max_sent_len,
+                      max_word_len=max_word_len,
+                      word_vocab_size=len(word_vocab),
+                      char_vocab_size=len(char_vocab),
+                      save_dir=save_dir,
+                      config=config)
+        label_probabilities = None
+        train_ppl, test_ppl, val_ppl = None, None, None
+        if args.type == 'word':
+            model.train(train_x=[word_x_train], train_y=y_train, val_x=word_x_val, val_y=y_val)
+            train_ppl = model.evaluate_perplexity(x=[word_x_train], y_true=y_train)
+            test_ppl = model.evaluate_perplexity(x=[word_x_test], y_true=y_test)
+            val_ppl = model.evaluate_perplexity(x=[word_x_val], y_true=y_val)
+            label_probabilities = model.predict(x=[word_x_train], true_y=y_train)
+        elif args.type == 'char':
+            model.train(train_x=[char_x_train], train_y=y_train, val_x=char_x_val, val_y=y_val)
+            train_ppl = model.evaluate_perplexity(x=[char_x_train], y_true=y_train)
+            test_ppl = model.evaluate_perplexity(x=[char_x_test], y_true=y_test)
+            val_ppl = model.evaluate_perplexity(x=[char_x_val], y_true=y_val)
+            label_probabilities = model.predict(x=[char_x_train], true_y=y_train)
+        elif args.type == 'word_char':
+            model.train(train_x=[char_x_train, word_x_train], train_y=y_train,
+                        val_x=[char_x_val, word_x_val],
+                        val_y=y_val)
+            train_ppl = model.evaluate_perplexity(x=[char_x_train, word_x_train], y_true=y_train)
+            test_ppl = model.evaluate_perplexity(x=[char_x_test, word_x_test], y_true=y_test)
+            val_ppl = model.evaluate_perplexity(x=[char_x_val, word_x_val], y_true=y_val)
+            label_probabilities = model.predict(x=[char_x_train, word_x_train], true_y=y_train)
 
-    elif args.type == 'word':
-        word_rnn_lm = RNNLM(type='word',
-                            max_seq_len=max_sent_len,
-                            max_word_len=max_word_len,
-                            word_vocab_size=len(word_vocab),
-                            char_vocab_size=len(char_vocab),
-                            save_dir=save_dir,
-                            config=config)
-        print('Training Word Level Model')
-        print('----------')
-        word_rnn_lm.train(train_x=[word_x_train], train_y=y_train, val_x=word_x_val, val_y=y_val)
-        train_ppl = word_rnn_lm.evaluate_perplexity(x=[word_x_train], y_true=y_train)
-        test_ppl = word_rnn_lm.evaluate_perplexity(x=[word_x_test], y_true=y_test)
-        val_ppl = word_rnn_lm.evaluate_perplexity(x=[word_x_val], y_true=y_val)
+        print('Neural Perplexity: Train: {}, Test: {}, Val: {}'.format(round(train_ppl, 3),
+                                                                       round(test_ppl, 3),
+                                                                       round(val_ppl, 3)))
 
-        print('Perplexity: Train: {}, Test: {}, Val: {}'.format(round(train_ppl, 3),
-                                                                round(test_ppl, 3),
-                                                                round(val_ppl, 3)))
-        print('----------')
+        # Converting to ARPA Format
+        arpa_lm = ARPALM(word2idx=word_vocab)
+        if args.input_ngram_lm:
+            arpa_lm.read_lm(args.input_ngram_lm)
+        else:
+            arpa_lm.read_lm(args.output_base_dir + '/' + args.language + '/ngram/3gram_kn_interp.lm')
+        arpa_lm.convert_to_ngram(label_probabilities)
 
-    elif args.type == 'char':
-        char_rnn_lm = RNNLM(type='char',
-                            max_seq_len=max_sent_len,
-                            max_word_len=max_word_len,
-                            word_vocab_size=len(word_vocab),
-                            char_vocab_size=len(char_vocab),
-                            save_dir=save_dir,
-                            config=config)
-        print('Training Char Level Model')
-        print('----------')
-        char_rnn_lm.train(train_x=[char_x_train], train_y=y_train, val_x=char_x_val, val_y=y_val)
-        train_ppl = char_rnn_lm.evaluate_perplexity(x=[char_x_train], y_true=y_train)
-        test_ppl = char_rnn_lm.evaluate_perplexity(x=[char_x_test], y_true=y_test)
-        val_ppl = char_rnn_lm.evaluate_perplexity(x=[char_x_val], y_true=y_val)
-
-        print('Perplexity: Train: {}, Test: {}, Val: {}'.format(round(train_ppl, 3),
-                                                                round(test_ppl, 3),
-                                                                round(val_ppl, 3)))
-        print('----------')
-
-    elif args.type == 'word_char':
-        word_char_rnn_lm = RNNLM(type='both',
-                                 max_seq_len=max_sent_len,
-                                 max_word_len=max_word_len,
-                                 word_vocab_size=len(word_vocab),
-                                 char_vocab_size=len(char_vocab),
-                                 save_dir=save_dir,
-                                 config=config)
-        print('Training Word+Char Model')
-        print('----------')
-        word_char_rnn_lm.train(train_x=[char_x_train, word_x_train], train_y=y_train, val_x=[char_x_val, word_x_val],
-                               val_y=y_val)
-        train_ppl = word_char_rnn_lm.evaluate_perplexity(x=[char_x_train, word_x_train], y_true=y_train)
-        test_ppl = word_char_rnn_lm.evaluate_perplexity(x=[char_x_test, word_x_test], y_true=y_test)
-        val_ppl = word_char_rnn_lm.evaluate_perplexity(x=[char_x_val, word_x_val], y_true=y_val)
-
-        print('Perplexity: Train: {}, Test: {}, Val: {}'.format(round(train_ppl, 3),
-                                                                round(test_ppl, 3),
-                                                                round(val_ppl, 3)))
-        print()
+        if args.output_ngram_lm:
+            arpa_lm.write_arpa_format(args.output_ngram_lm)
+        else:
+            arpa_lm.write_arpa_format(save_dir + '/' + args.language + '_' + args.type + '_' + 'neural_3gram.lm')
 
 
 if __name__ == '__main__':

@@ -92,8 +92,7 @@ class WordRNNLM:
     # TODO: Support Sampled Softmax / Noise-Contrastive Estimation
     # TODO: Support Recurrent Layer Weight Initialization
     def _build_model(self):
-        """
-            Builds and compiles Language Model.
+        """Builds and compiles Language Model.
 
         Layer normalization is not trivially supported in Keras but 3rd party solutions like
         https://pypi.org/project/keras-layer-normalization/ may be worth trying.
@@ -158,3 +157,22 @@ class WordRNNLM:
         loss = self._model.evaluate(x=x,
                                     y=y_true)
         return np.exp(loss)
+
+    def predict(self, x, true_y):
+        pred_y = self._model.predict(x=x)
+        label_probabilities = []
+        for sent_id, sent in enumerate(true_y):
+            sent_prob_list = []
+            for word_pos, word  in enumerate(sent):
+                word_idx = word[0]
+
+                if word_idx == 0:
+                    # EOS
+                    label_probabilities.append(sent_prob_list.copy())
+                    break
+                else:
+                    prob = pred_y[sent_id][word_pos][word_idx]
+                    sent_prob_list.append((word_idx, prob))
+            sent_prob_list.clear()
+
+        return label_probabilities

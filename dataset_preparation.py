@@ -177,7 +177,7 @@ def write_brown_clusters(language_code, num_clusters, clustering_home_path):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--source_file', help='Source monolingual text')
+    parser.add_argument('--source_monolingual_file', help='Source monolingual text')
     parser.add_argument('--language', help='Language Code (Directory for processed data)')
     parser.add_argument('--cluster', action='store_true', default=True, help='Run Brown Clustering')
     parser.add_argument('--clustering_home_path', default='brown-cluster-master',
@@ -194,8 +194,7 @@ def main():
     if args.debug:
         logging.basicConfig(format='%(levelname)s:%(funcName)s:%(lineno)s:\t%(message)s', level=logging.DEBUG)
 
-    """
-    vocab, train_sentences, test_sentences, val_sentences = split_text(args.source_file,
+    vocab, train_sentences, test_sentences, val_sentences = split_text(args.source_monolingual_file,
                                                                        config['data'])
 
     write_to_file(language_code=args.language,
@@ -203,7 +202,7 @@ def main():
                   train_sentences=train_sentences,
                   test_sentences=test_sentences,
                   val_sentences=val_sentences)
-    """
+
     if args.cluster:
         write_brown_clusters(language_code=args.language, num_clusters=args.num_clusters,
                              clustering_home_path=args.clustering_home_path)
