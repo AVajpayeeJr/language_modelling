@@ -146,7 +146,8 @@ def write_brown_clusters(language_code, num_clusters, clustering_home_path):
     """
     run_args = subprocess.run(args=[clustering_home_path + '/' + 'wcluster',
                                     '--c', str(num_clusters),
-                                    '--text', str(language_code) + '/' + 'train.txt'],
+                                    '--text', str(language_code) + '/' + 'train.txt',
+                                    '--threads', 20],
                               stderr=subprocess.PIPE, stdout=subprocess.PIPE)
     try:
         run_args.check_returncode()
