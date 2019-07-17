@@ -50,9 +50,6 @@ class WordRNNLM:
 
         # Internal LM object
         self._model = None
-        if self._name + '.hdf5' in os.listdir(self._path):
-            print('Loading Model')
-            self._model = load_model(self._path + '/' + self._name + '.hdf5')
 
 
     # TODO: Support Learning Rate Schedules
@@ -149,15 +146,23 @@ class WordRNNLM:
         checkpointer = ModelCheckpoint(filepath='{0}/{1}.hdf5'.format(self._path,
                                                                       self._name),
                                        monitor='val_loss', verbose=1, save_best_only=True)
+        weights_check_pointer = ModelCheckpoint(filepath='{0}/{1}_weights.hdf5'.format(self._path,
+                                                                                       self._name),
+                                                monitor='val_loss', verbose=1, save_best_only=True,
+                                                save_weights_only=True)
         if self._model is None:
-            print('Initializing model')
-            self._build_model()
+            if self._name + '.hdf5' in os.listdir(self._path):
+                print('Loading Model')
+                self._model = load_model(self._path + '/' + self._name + '.hdf5')
+            else:
+                print('Initializing model')
+                self._build_model()
         history = self._model.fit(x=train_x,
                                   y=train_y,
                                   batch_size=self._batch_size,
                                   epochs=self._epochs,
                                   validation_data=(val_x, val_y),
-                                  callbacks=[csv_logger, checkpointer])
+                                  callbacks=[csv_logger, checkpointer, weights_check_pointer])
         print(history.history)
         return history
 
@@ -167,6 +172,12 @@ class WordRNNLM:
         return np.exp(loss)
 
     def predict(self, x, true_y):
+        K.clear_session()
+        del self._model
+        self._build_model()
+        self._model.load_weights('{0}/{1}_weights.hdf5'.format(self._path,
+                                                               self._name))
+
         start_idx = 0
         batch_size = 1000
         batch_cnt = 0
@@ -175,10 +186,10 @@ class WordRNNLM:
         label_probabilities = []
         while end_idx <= len(true_y):
             print('Predicting batch: {}'.format(batch_cnt))
-            K.clear_session()
+
             true_y_batch = true_y[start_idx: end_idx]
             x_batch = x[start_idx: end_idx]
-            pred_y_batch = self._model.predict_on_batch(x=x_batch)
+            pred_y_batch = self._model.predict(x=x_batch)
 
             for sent_id, sent in enumerate(true_y_batch):
                 sent_prob_list = []
