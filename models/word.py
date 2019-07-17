@@ -171,6 +171,26 @@ class WordRNNLM:
                                     y=y_true)
         return np.exp(loss)
 
+    def predict_on_batch(self, x_batch, true_y_batch):
+        K.clear_session()
+        label_probabilities = []
+        pred_y_batch = self._model.predict_on_batch(x=x_batch)
+
+        for sent_id, sent in enumerate(true_y_batch):
+            sent_prob_list = []
+            for word_pos, word in enumerate(sent):
+                word_idx = word[0]
+
+                if word_idx == 0:
+                    # EOS
+                    label_probabilities.append(sent_prob_list.copy())
+                    break
+                else:
+                    prob = pred_y_batch[sent_id][word_pos][word_idx]
+                    sent_prob_list.append((word_idx, prob))
+            sent_prob_list.clear()
+        return label_probabilities
+
     def predict(self, x, true_y):
         K.clear_session()
         del self._model
@@ -189,21 +209,7 @@ class WordRNNLM:
 
             true_y_batch = true_y[start_idx: end_idx]
             x_batch = x[start_idx: end_idx]
-            pred_y_batch = self._model.predict(x=x_batch)
-
-            for sent_id, sent in enumerate(true_y_batch):
-                sent_prob_list = []
-                for word_pos, word  in enumerate(sent):
-                    word_idx = word[0]
-
-                    if word_idx == 0:
-                        # EOS
-                        label_probabilities.append(sent_prob_list.copy())
-                        break
-                    else:
-                        prob = pred_y_batch[sent_id][word_pos][word_idx]
-                        sent_prob_list.append((word_idx, prob))
-                sent_prob_list.clear()
+            label_probabilities += self.predict_on_batch(x_batch, true_y_batch)
             start_idx = end_idx
             end_idx += batch_size
             batch_cnt += 1

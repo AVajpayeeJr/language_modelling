@@ -171,7 +171,7 @@ def main():
     parser.add_argument('--type', help='word/char/word_char/word_class')
     parser.add_argument('--num_classes', type=int, default=100, help='Number of classes when using word_class model')
     parser.add_argument('--output_base_dir', default='saved_models', help='Base Directory for storing models')
-    parser.add_argument('--train', action='store_true', default=False,
+    parser.add_argument('--train_mode', action='store_true', default=False,
                         help='If set to False, only use for predicting. Default True.')
     parser.add_argument('--input_ngram_lm', default=None,
                         help='Input N-Gram LM to use as base for approximating')
@@ -180,7 +180,6 @@ def main():
     parser.add_argument('--debug', action='store_true', default=True, help='Run with DEBUG logging level')
     args = parser.parse_args()
 
-    print(os.environ['CUDA_AVAILABLE_DEVICES'])
     if args.debug:
         logging.basicConfig(format='%(levelname)s:%(funcName)s:%(lineno)s:\t%(message)s', level=logging.DEBUG)
 
@@ -301,6 +300,20 @@ def main():
                                     train_y=y_train,
                                     val_x=[class_x_val, word_x_val],
                                     val_y=y_val)
+        else:
+            label_probabilities = word_class_rnn_lm.predict(x=[class_x_train, word_x_train], true_y=y_train)
+            # Converting to ARPA Format
+            arpa_lm = ARPALM(word2idx=word_vocab)
+            if args.input_ngram_lm:
+                arpa_lm.read_lm(args.input_ngram_lm)
+            else:
+                arpa_lm.read_lm(args.output_base_dir + '/' + args.language + '/ngram/3gram_kn_interp.lm')
+            arpa_lm.convert_to_ngram(label_probabilities)
+
+            if args.output_ngram_lm:
+                arpa_lm.write_arpa_format(args.output_ngram_lm)
+            else:
+                arpa_lm.write_arpa_format(save_dir + '/' + args.language + '_' + args.type + '_' + 'neural_3gram.lm')
 
         train_ppl = word_class_rnn_lm.evaluate_perplexity(x=[class_x_train,
                                                              word_x_train], y_true=y_train)
@@ -308,25 +321,10 @@ def main():
                                                             word_x_test], y_true=y_test)
         val_ppl = word_class_rnn_lm.evaluate_perplexity(x=[class_x_val,
                                                            word_x_val], y_true=y_val)
-        label_probabilities = word_class_rnn_lm.predict(x=[class_x_train, word_x_train], true_y=y_train)
+
         print('Neural Perplexity: Train: {}, Test: {}, Val: {}'.format(round(train_ppl, 3),
                                                                        round(test_ppl, 3),
                                                                        round(val_ppl, 3)))
-
-        # Converting to ARPA Format
-        arpa_lm = ARPALM(word2idx=word_vocab)
-        if args.input_ngram_lm:
-            arpa_lm.read_lm(args.input_ngram_lm)
-        else:
-            arpa_lm.read_lm(args.output_base_dir + '/' + args.language + '/ngram/3gram_kn_interp.lm')
-        arpa_lm.convert_to_ngram(label_probabilities)
-
-        if args.output_ngram_lm:
-            arpa_lm.write_arpa_format(args.output_ngram_lm)
-        else:
-            arpa_lm.write_arpa_format(save_dir + '/' + args.language + '_' + args.type + '_' + 'neural_3gram.lm')
-
-        print('----------')
     else:
         model = RNNLM(type=args.type,
                       max_seq_len=max_sent_len,
@@ -335,50 +333,38 @@ def main():
                       char_vocab_size=len(char_vocab),
                       save_dir=save_dir,
                       config=config)
-        label_probabilities = None
-        train_ppl, test_ppl, val_ppl = None, None, None
-        if args.type == 'word':
-            if args.train:
-                model.train(train_x=[word_x_train], train_y=y_train, val_x=word_x_val, val_y=y_val)
 
-            #train_ppl = model.evaluate_perplexity(x=[word_x_train], y_true=y_train)
-            #test_ppl = model.evaluate_perplexity(x=[word_x_test], y_true=y_test)
-            #val_ppl = model.evaluate_perplexity(x=[word_x_val], y_true=y_val)
-            label_probabilities = model.predict(x=[word_x_train], true_y=y_train)
+        train_x, val_x = None, None
+        if args.type == 'word':
+            train_x, val_x, test_x = [word_x_train], [word_x_val], [word_x_test]
         elif args.type == 'char':
-            if args.train:
-                model.train(train_x=[char_x_train], train_y=y_train, val_x=char_x_val, val_y=y_val)
-            train_ppl = model.evaluate_perplexity(x=[char_x_train], y_true=y_train)
-            test_ppl = model.evaluate_perplexity(x=[char_x_test], y_true=y_test)
-            val_ppl = model.evaluate_perplexity(x=[char_x_val], y_true=y_val)
-            label_probabilities = model.predict(x=[char_x_train], true_y=y_train)
-        elif args.type == 'word_char':
-            if args.train:
-                model.train(train_x=[char_x_train, word_x_train], train_y=y_train,
-                            val_x=[char_x_val, word_x_val],
-                            val_y=y_val)
-            train_ppl = model.evaluate_perplexity(x=[char_x_train, word_x_train], y_true=y_train)
-            test_ppl = model.evaluate_perplexity(x=[char_x_test, word_x_test], y_true=y_test)
-            val_ppl = model.evaluate_perplexity(x=[char_x_val, word_x_val], y_true=y_val)
-            label_probabilities = model.predict(x=[char_x_train, word_x_train], true_y=y_train)
+            train_x, val_x, test_x = [char_x_train], [char_x_val], [char_x_test]
+        else:
+            train_x, val_x, test_x = [char_x_train, word_x_train], [char_x_val, word_x_val], [char_x_test, word_x_test]
+        if args.train:
+            model.train(train_x=train_x, train_y=y_train, val_x=val_x, val_y=y_val)
+        else:
+            label_probabilities = model.predict(x=train_x, true_y=y_train)
+            # Converting to ARPA Format
+            arpa_lm = ARPALM(word2idx=word_vocab)
+            if args.input_ngram_lm:
+                arpa_lm.read_lm(args.input_ngram_lm)
+            else:
+                arpa_lm.read_lm(args.output_base_dir + '/' + args.language + '/ngram/3gram_kn_interp.lm')
+            arpa_lm.convert_to_ngram(label_probabilities)
+
+            if args.output_ngram_lm:
+                arpa_lm.write_arpa_format(args.output_ngram_lm)
+            else:
+                arpa_lm.write_arpa_format(save_dir + '/' + args.language + '_' + args.type + '_' + 'neural_3gram.lm')
+
+        train_ppl = model.evaluate_perplexity(x=train_x, y_true=y_train)
+        test_ppl = model.evaluate_perplexity(x=test_x, y_true=y_test)
+        val_ppl = model.evaluate_perplexity(x=val_x, y_true=y_val)
 
         print('Neural Perplexity: Train: {}, Test: {}, Val: {}'.format(round(train_ppl, 3),
                                                                        round(test_ppl, 3),
                                                                        round(val_ppl, 3)))
-
-        # Converting to ARPA Format
-        arpa_lm = ARPALM(word2idx=word_vocab)
-        if args.input_ngram_lm:
-            arpa_lm.read_lm(args.input_ngram_lm)
-        else:
-            arpa_lm.read_lm(args.output_base_dir + '/' + args.language + '/ngram/3gram_kn_interp.lm')
-        arpa_lm.convert_to_ngram(label_probabilities)
-
-        if args.output_ngram_lm:
-            arpa_lm.write_arpa_format(args.output_ngram_lm)
-        else:
-            arpa_lm.write_arpa_format(save_dir + '/' + args.language + '_' + args.type + '_' + 'neural_3gram.lm')
-        
 
 if __name__ == '__main__':
     main()
