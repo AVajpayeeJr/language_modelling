@@ -165,20 +165,34 @@ class WordRNNLM:
         return np.exp(loss)
 
     def predict(self, x, true_y):
-        pred_y = self._model.predict(x=x)
+        start_idx = 0
+        batch_size = 1000
+        batch_cnt = 0
+        end_idx = start_idx + batch_size
+
         label_probabilities = []
-        for sent_id, sent in enumerate(true_y):
-            sent_prob_list = []
-            for word_pos, word  in enumerate(sent):
-                word_idx = word[0]
+        while end_idx <= len(x):
+            print('Predicting batch: {}'.format(batch_cnt))
+            true_y_batch = true_y[start_idx: end_idx]
+            x_batch = x[start_idx: end_idx]
+            pred_y_batch = self._model.predict(x=x_batch)
 
-                if word_idx == 0:
-                    # EOS
-                    label_probabilities.append(sent_prob_list.copy())
-                    break
-                else:
-                    prob = pred_y[sent_id][word_pos][word_idx]
-                    sent_prob_list.append((word_idx, prob))
-            sent_prob_list.clear()
+            for sent_id, sent in enumerate(true_y_batch):
+                sent_prob_list = []
+                for word_pos, word  in enumerate(sent):
+                    word_idx = word[0]
 
+                    if word_idx == 0:
+                        # EOS
+                        label_probabilities.append(sent_prob_list.copy())
+                        break
+                    else:
+                        prob = pred_y_batch[sent_id][word_pos][word_idx]
+                        sent_prob_list.append((word_idx, prob))
+                sent_prob_list.clear()
+
+            start_idx = end_idx
+            end_idx += batch_size
+            batch_cnt += 1
+        print('Len label_probabilities: {}'.format(len(label_probabilities)))
         return label_probabilities

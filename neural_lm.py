@@ -171,6 +171,8 @@ def main():
     parser.add_argument('--type', help='word/char/word_char/word_class')
     parser.add_argument('--num_classes', type=int, default=100, help='Number of classes when using word_class model')
     parser.add_argument('--output_base_dir', default='saved_models', help='Base Directory for storing models')
+    parser.add_argument('--train', type='store_true', default=True,
+                        help='If set to False, only use for predicting. Default True.')
     parser.add_argument('--input_ngram_lm', default=None,
                         help='Input N-Gram LM to use as base for approximating')
     parser.add_argument('--output_ngram_lm', default=None,
@@ -293,10 +295,13 @@ def main():
         logging.debug('Train Class Y: {}'.format(train_class_y.shape))
         val_class_y = np.expand_dims(class_x_val, -1)
         logging.debug('Val Class Y: {}'.format(val_class_y.shape))
-        word_class_rnn_lm.train(train_x=[class_x_train, word_x_train],
-                                train_y=y_train,
-                                val_x=[class_x_val, word_x_val],
-                                val_y=y_val)
+
+        if args.train:
+            word_class_rnn_lm.train(train_x=[class_x_train, word_x_train],
+                                    train_y=y_train,
+                                    val_x=[class_x_val, word_x_val],
+                                    val_y=y_val)
+
         train_ppl = word_class_rnn_lm.evaluate_perplexity(x=[class_x_train,
                                                              word_x_train], y_true=y_train)
         test_ppl = word_class_rnn_lm.evaluate_perplexity(x=[class_x_test,
@@ -333,21 +338,25 @@ def main():
         label_probabilities = None
         train_ppl, test_ppl, val_ppl = None, None, None
         if args.type == 'word':
-            model.train(train_x=[word_x_train], train_y=y_train, val_x=word_x_val, val_y=y_val)
+            if args.train:
+                model.train(train_x=[word_x_train], train_y=y_train, val_x=word_x_val, val_y=y_val)
+
             train_ppl = model.evaluate_perplexity(x=[word_x_train], y_true=y_train)
             test_ppl = model.evaluate_perplexity(x=[word_x_test], y_true=y_test)
             val_ppl = model.evaluate_perplexity(x=[word_x_val], y_true=y_val)
             label_probabilities = model.predict(x=[word_x_train], true_y=y_train)
         elif args.type == 'char':
-            model.train(train_x=[char_x_train], train_y=y_train, val_x=char_x_val, val_y=y_val)
+            if args.train:
+                model.train(train_x=[char_x_train], train_y=y_train, val_x=char_x_val, val_y=y_val)
             train_ppl = model.evaluate_perplexity(x=[char_x_train], y_true=y_train)
             test_ppl = model.evaluate_perplexity(x=[char_x_test], y_true=y_test)
             val_ppl = model.evaluate_perplexity(x=[char_x_val], y_true=y_val)
             label_probabilities = model.predict(x=[char_x_train], true_y=y_train)
         elif args.type == 'word_char':
-            model.train(train_x=[char_x_train, word_x_train], train_y=y_train,
-                        val_x=[char_x_val, word_x_val],
-                        val_y=y_val)
+            if args.train:
+                model.train(train_x=[char_x_train, word_x_train], train_y=y_train,
+                            val_x=[char_x_val, word_x_val],
+                            val_y=y_val)
             train_ppl = model.evaluate_perplexity(x=[char_x_train, word_x_train], y_true=y_train)
             test_ppl = model.evaluate_perplexity(x=[char_x_test, word_x_test], y_true=y_test)
             val_ppl = model.evaluate_perplexity(x=[char_x_val, word_x_val], y_true=y_val)
