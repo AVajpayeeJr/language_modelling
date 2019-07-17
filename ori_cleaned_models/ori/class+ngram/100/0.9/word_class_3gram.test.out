@@ -1,0 +1,2 @@
+file ori/test.txt: 5000 sentences, 46398 words, 3414 OOVs
+0 zeroprobs, logprob= -121960.2 ppl= 348.0848 ppl1= 687.6063

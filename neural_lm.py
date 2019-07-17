@@ -301,8 +301,7 @@ def main():
                                                             word_x_test], y_true=y_test)
         val_ppl = word_class_rnn_lm.evaluate_perplexity(x=[class_x_val,
                                                            word_x_val], y_true=y_val)
-        label_probabilities = word_class_rnn_lm.predict(x=[class_x_train,
-                                                           word_x_train], true_y=y_train)
+        label_probabilities = word_class_rnn_lm.predict(x=[class_x_train, word_x_train], true_y=y_train)
         print('Neural Perplexity: Train: {}, Test: {}, Val: {}'.format(round(train_ppl, 3),
                                                                        round(test_ppl, 3),
                                                                        round(val_ppl, 3)))
@@ -321,7 +320,6 @@ def main():
             arpa_lm.write_arpa_format(save_dir + '/' + args.language + '_' + args.type + '_' + 'neural_3gram.lm')
 
         print('----------')
-
     else:
         model = RNNLM(type=args.type,
                       max_seq_len=max_sent_len,
@@ -369,7 +367,7 @@ def main():
             arpa_lm.write_arpa_format(args.output_ngram_lm)
         else:
             arpa_lm.write_arpa_format(save_dir + '/' + args.language + '_' + args.type + '_' + 'neural_3gram.lm')
-
+        
 
 if __name__ == '__main__':
     main()

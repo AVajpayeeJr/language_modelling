@@ -41,6 +41,8 @@ def split_text(data_file_path, config, handle_oov=True):
             if line:
                 curr_sent_cnt += 1
                 tokens = line.split()
+                if len(tokens) < config['min_sentence_len'] or len(tokens) > config['max_sentence_len']:
+                    continue
                 if curr_sent_cnt <=  val_sent_cnt:
                     val.append(tokens)
                 elif curr_sent_cnt <= val_sent_cnt + test_sent_cnt:

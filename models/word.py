@@ -1,6 +1,6 @@
 from keras.callbacks import CSVLogger, ModelCheckpoint
 from keras.layers import Dense, Embedding, GRU, Input, LSTM, TimeDistributed
-from keras.models import Model
+from keras.models import Model, load_model
 from keras.optimizers import RMSprop, Adam
 import numpy as np
 import os
@@ -48,6 +48,10 @@ class WordRNNLM:
 
         # Internal LM object
         self._model = None
+        if self._name + '.hdf5' in os.listdir(self._path):
+            print('Loading Model')
+            self._model = load_model(self._path + '/' + self._name + '.hdf5')
+
 
     # TODO: Support Learning Rate Schedules
     def _get_optimizer(self):
@@ -143,7 +147,9 @@ class WordRNNLM:
         checkpointer = ModelCheckpoint(filepath='{0}/{1}.hdf5'.format(self._path,
                                                                       self._name),
                                        monitor='val_loss', verbose=1, save_best_only=True)
-        self._build_model()
+        if self._model is None:
+            print('Initializing model')
+            self._build_model()
         history = self._model.fit(x=train_x,
                                   y=train_y,
                                   batch_size=self._batch_size,

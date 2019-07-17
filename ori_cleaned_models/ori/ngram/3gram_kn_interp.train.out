@@ -1,0 +1,2 @@
+file ori/train.txt: 79832 sentences, 1153381 words, 69977 OOVs
+0 zeroprobs, logprob= -2296859 ppl= 94.30677 ppl1= 131.8377
