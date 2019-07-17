@@ -171,11 +171,14 @@ class WordRNNLM:
                                     y=y_true)
         return np.exp(loss)
 
-    def predict_on_batch(self, x_batch, true_y_batch, graph):
+    def predict_on_batch(self, x_batch, true_y_batch):
         K.clear_session()
-        global graph
         label_probabilities = []
         with graph.as_default():
+            config = tf.ConfigProto(inter_op_parallelism_threads=1)
+            sess = tf.Session(config=config)
+            K.set_session(sess)
+            K.get_session().run(tf.global_variables_initializer())
             pred_y_batch = self._model.predict_on_batch(x=x_batch)
 
         for sent_id, sent in enumerate(true_y_batch):
@@ -199,7 +202,9 @@ class WordRNNLM:
         self._build_model()
         self._model.load_weights('{0}/{1}_weights.hdf5'.format(self._path,
                                                                self._name))
+        global graph
         graph = tf.get_default_graph()
+        
         start_idx = 0
         batch_size = 1000
         batch_cnt = 0
@@ -211,7 +216,7 @@ class WordRNNLM:
 
             true_y_batch = true_y[start_idx: end_idx]
             x_batch = x[start_idx: end_idx]
-            label_probabilities += self.predict_on_batch(x_batch, true_y_batch, graph)
+            label_probabilities += self.predict_on_batch(x_batch, true_y_batch)
             start_idx = end_idx
             end_idx += batch_size
             batch_cnt += 1

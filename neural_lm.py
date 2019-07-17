@@ -295,7 +295,7 @@ def main():
         val_class_y = np.expand_dims(class_x_val, -1)
         logging.debug('Val Class Y: {}'.format(val_class_y.shape))
 
-        if args.train:
+        if args.train_mode:
             word_class_rnn_lm.train(train_x=[class_x_train, word_x_train],
                                     train_y=y_train,
                                     val_x=[class_x_val, word_x_val],
@@ -341,7 +341,7 @@ def main():
             train_x, val_x, test_x = [char_x_train], [char_x_val], [char_x_test]
         else:
             train_x, val_x, test_x = [char_x_train, word_x_train], [char_x_val, word_x_val], [char_x_test, word_x_test]
-        if args.train:
+        if args.train_mode:
             model.train(train_x=train_x, train_y=y_train, val_x=val_x, val_y=y_val)
         else:
             label_probabilities = model.predict(x=train_x, true_y=y_train)

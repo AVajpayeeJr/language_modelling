@@ -1,16 +1,16 @@
 nohup: ignoring input
 Using TensorFlow backend.
-DEBUG:main:204:	Size Word Vocab: 25999
-DEBUG:main:210:	Train Word X: (79832, 105)
-DEBUG:main:211:	Train Y: (79832, 105, 1)
-DEBUG:main:217:	Val Word X: (4982, 105)
-DEBUG:main:218:	Val Y: (4982, 105, 1)
-DEBUG:main:224:	Test Word X: (5000, 105)
-DEBUG:main:225:	Test Y: (5000, 105, 1)
-DEBUG:main:229:	Size Char Vocab: 136
-DEBUG:main:236:	Train Char X: (79832, 105, 33)
-DEBUG:main:243:	Val Char X: (4982, 105, 33)
-DEBUG:main:250:	Test Char X: (5000, 105, 33)
+DEBUG:main:203:	Size Word Vocab: 25999
+DEBUG:main:209:	Train Word X: (79832, 105)
+DEBUG:main:210:	Train Y: (79832, 105, 1)
+DEBUG:main:216:	Val Word X: (4982, 105)
+DEBUG:main:217:	Val Y: (4982, 105, 1)
+DEBUG:main:223:	Test Word X: (5000, 105)
+DEBUG:main:224:	Test Y: (5000, 105, 1)
+DEBUG:main:228:	Size Char Vocab: 136
+DEBUG:main:235:	Train Char X: (79832, 105, 33)
+DEBUG:main:242:	Val Char X: (4982, 105, 33)
+DEBUG:main:249:	Test Char X: (5000, 105, 33)
 WARNING:tensorflow:From /home/ec2-user/anaconda3/envs/tensorflow_p36/lib/python3.6/site-packages/tensorflow/python/framework/op_def_library.py:263: colocate_with (from tensorflow.python.framework.ops) is deprecated and will be removed in a future version.
 Instructions for updating:
 Colocations handled automatically by placer.
@@ -23,21 +23,35 @@ Please use `rate` instead of `keep_prob`. Rate should be set to `rate = 1 - keep
 WARNING:new_func:506:	From /home/ec2-user/anaconda3/envs/tensorflow_p36/lib/python3.6/site-packages/keras/backend/tensorflow_backend.py:3445: calling dropout (from tensorflow.python.ops.nn_ops) with keep_prob is deprecated and will be removed in a future version.
 Instructions for updating:
 Please use `rate` instead of `keep_prob`. Rate should be set to `rate = 1 - keep_prob`.
-WARNING:tensorflow:From /home/ec2-user/anaconda3/envs/tensorflow_p36/lib/python3.6/site-packages/tensorflow/python/ops/math_ops.py:3066: to_int32 (from tensorflow.python.ops.math_ops) is deprecated and will be removed in a future version.
-Instructions for updating:
-Use tf.cast instead.
-WARNING:new_func:323:	From /home/ec2-user/anaconda3/envs/tensorflow_p36/lib/python3.6/site-packages/tensorflow/python/ops/math_ops.py:3066: to_int32 (from tensorflow.python.ops.math_ops) is deprecated and will be removed in a future version.
-Instructions for updating:
-Use tf.cast instead.
-2
-Loading Model
+/home/ec2-user/language_modelling/models/word.py:137: UserWarning: Update your `Model` call to the Keras 2 API: `Model(inputs=[<tf.Tenso..., outputs=Tensor("ou...)`
+  self._model = Model(inputs=inputs, output=output_layer)
+_________________________________________________________________
+Layer (type)                 Output Shape              Param #   
+=================================================================
+word_input (InputLayer)      (None, 105)               0         
+_________________________________________________________________
+word_embedding (Embedding)   (None, 105, 125)          3249875   
+_________________________________________________________________
+gru0 (GRU)                   (None, 105, 125)          94125     
+_________________________________________________________________
+gru1 (GRU)                   (None, 105, 125)          94125     
+_________________________________________________________________
+output (TimeDistributed)     (None, 105, 25999)        3275874   
+=================================================================
+Total params: 6,713,999
+Trainable params: 6,713,999
+Non-trainable params: 0
+_________________________________________________________________
+None
 Predicting batch: 0
 Traceback (most recent call last):
-  File "neural_lm.py", line 384, in <module>
+  File "neural_lm.py", line 370, in <module>
     main()
   File "neural_lm.py", line 347, in main
-    label_probabilities = model.predict(x=[word_x_train], true_y=y_train)
-  File "/home/ec2-user/language_modelling/models/word.py", line 180, in predict
+    label_probabilities = model.predict(x=train_x, true_y=y_train)
+  File "/home/ec2-user/language_modelling/models/word.py", line 219, in predict
+    label_probabilities += self.predict_on_batch(x_batch, true_y_batch)
+  File "/home/ec2-user/language_modelling/models/word.py", line 182, in predict_on_batch
     pred_y_batch = self._model.predict_on_batch(x=x_batch)
   File "/home/ec2-user/anaconda3/envs/tensorflow_p36/lib/python3.6/site-packages/keras/engine/training.py", line 1274, in predict_on_batch
     outputs = self.predict_function(ins)
@@ -53,8 +67,8 @@ tensorflow.python.framework.errors_impl.ResourceExhaustedError: OOM when allocat
 	 [[{{node gru0/transpose_2}}]]
 Hint: If you want to see a list of allocated tensors when OOM happens, add report_tensor_allocations_upon_oom to RunOptions for current allocation info.
 
-	 [[{{node gru1/while/Switch_1}}]]
+	 [[{{node gru1/strided_slice_9}}]]
 Hint: If you want to see a list of allocated tensors when OOM happens, add report_tensor_allocations_upon_oom to RunOptions for current allocation info.
 
-54.18user 11.45system 1:04.72elapsed 101%CPU (0avgtext+0avgdata 4370556maxresident)k
-0inputs+32outputs (0major+1603858minor)pagefaults 0swaps
+52.01user 10.93system 1:02.01elapsed 101%CPU (0avgtext+0avgdata 4369872maxresident)k
+0inputs+32outputs (0major+1461348minor)pagefaults 0swaps

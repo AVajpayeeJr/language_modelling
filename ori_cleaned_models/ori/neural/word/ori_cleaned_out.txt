@@ -1,0 +1,4 @@
+nohup: ignoring input
+python3: can't open file 'neural_lm.py': [Errno 2] No such file or directory
+0.02user 0.00system 0:00.02elapsed 100%CPU (0avgtext+0avgdata 8756maxresident)k
+0inputs+0outputs (0major+1097minor)pagefaults 0swaps
