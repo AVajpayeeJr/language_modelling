@@ -1,7 +1,9 @@
+import keras.backend as K
 from keras.callbacks import CSVLogger, ModelCheckpoint
 from keras.layers import Dense, Embedding, GRU, Input, LSTM, TimeDistributed
 from keras.models import Model, load_model
 from keras.optimizers import RMSprop, Adam
+import logging
 import numpy as np
 import os
 
@@ -171,11 +173,12 @@ class WordRNNLM:
         end_idx = start_idx + batch_size
 
         label_probabilities = []
-        while end_idx <= len(x):
+        while end_idx <= len(true_y):
             print('Predicting batch: {}'.format(batch_cnt))
+            K.clear_session()
             true_y_batch = true_y[start_idx: end_idx]
             x_batch = x[start_idx: end_idx]
-            pred_y_batch = self._model.predict(x=x_batch)
+            pred_y_batch = self._model.predict_on_batch(x=x_batch)
 
             for sent_id, sent in enumerate(true_y_batch):
                 sent_prob_list = []
@@ -190,7 +193,6 @@ class WordRNNLM:
                         prob = pred_y_batch[sent_id][word_pos][word_idx]
                         sent_prob_list.append((word_idx, prob))
                 sent_prob_list.clear()
-
             start_idx = end_idx
             end_idx += batch_size
             batch_cnt += 1
