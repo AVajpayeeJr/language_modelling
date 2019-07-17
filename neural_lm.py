@@ -6,6 +6,7 @@ from models.char import RNNLM
 from models.word_class import WordClassRNNLM
 from models.arpa import ARPALM
 import numpy as np
+import os
 import yaml
 
 __author__ = 'avijitv@uw.edu'
@@ -177,6 +178,7 @@ def main():
     parser.add_argument('--debug', action='store_true', default=True, help='Run with DEBUG logging level')
     args = parser.parse_args()
 
+    print(os.environ['CUDA_AVAILABLE_DEVICES'])
     if args.debug:
         logging.basicConfig(format='%(levelname)s:%(funcName)s:%(lineno)s:\t%(message)s', level=logging.DEBUG)
 
