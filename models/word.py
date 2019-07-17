@@ -3,8 +3,8 @@ from keras.callbacks import CSVLogger, ModelCheckpoint
 from keras.layers import Dense, Embedding, GRU, Input, LSTM, TimeDistributed
 from keras.models import Model, load_model
 from keras.optimizers import RMSprop, Adam
-import logging
 import numpy as np
+import tensorflow as tf
 import os
 
 
@@ -171,10 +171,12 @@ class WordRNNLM:
                                     y=y_true)
         return np.exp(loss)
 
-    def predict_on_batch(self, x_batch, true_y_batch):
+    def predict_on_batch(self, x_batch, true_y_batch, graph):
         K.clear_session()
+        global graph
         label_probabilities = []
-        pred_y_batch = self._model.predict_on_batch(x=x_batch)
+        with graph.as_default():
+            pred_y_batch = self._model.predict_on_batch(x=x_batch)
 
         for sent_id, sent in enumerate(true_y_batch):
             sent_prob_list = []
@@ -197,7 +199,7 @@ class WordRNNLM:
         self._build_model()
         self._model.load_weights('{0}/{1}_weights.hdf5'.format(self._path,
                                                                self._name))
-
+        graph = tf.get_default_graph()
         start_idx = 0
         batch_size = 1000
         batch_cnt = 0
@@ -209,7 +211,7 @@ class WordRNNLM:
 
             true_y_batch = true_y[start_idx: end_idx]
             x_batch = x[start_idx: end_idx]
-            label_probabilities += self.predict_on_batch(x_batch, true_y_batch)
+            label_probabilities += self.predict_on_batch(x_batch, true_y_batch, graph)
             start_idx = end_idx
             end_idx += batch_size
             batch_cnt += 1
